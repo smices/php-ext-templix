@@ -34,15 +34,24 @@ static zend_object_handlers templix_engine_handlers;
 
 PHP_FUNCTION(templix_escape)
 {
+    zval *value;
     zend_string *input;
+    zend_bool release_input = 0;
     const char *chunk_start;
     const char *cursor;
     const char *end;
     smart_str output = {0};
 
     ZEND_PARSE_PARAMETERS_START(1, 1)
-        Z_PARAM_STR(input)
+        Z_PARAM_ZVAL(value)
     ZEND_PARSE_PARAMETERS_END();
+
+    if (Z_TYPE_P(value) == IS_STRING) {
+        input = Z_STR_P(value);
+    } else {
+        input = zval_get_string(value);
+        release_input = 1;
+    }
 
     chunk_start = ZSTR_VAL(input);
     cursor = chunk_start;
@@ -87,11 +96,17 @@ PHP_FUNCTION(templix_escape)
     }
 
     if (!output.s) {
+        if (release_input) {
+            RETURN_STR(input);
+        }
         RETURN_STR_COPY(input);
     }
 
     smart_str_appendl(&output, chunk_start, end - chunk_start);
     smart_str_0(&output);
+    if (release_input) {
+        zend_string_release(input);
+    }
     RETURN_STR(output.s);
 }
 
@@ -178,28 +193,22 @@ static zend_string *templix_cache_path(templix_engine_object *intern, zend_strin
     return cache_path;
 }
 
-static zend_string *templix_execute_compiled(zend_string *compiled, zval *data)
+static zend_string *templix_execute_compiled_file(zend_string *cache_path, zval *data)
 {
     smart_str code = {0};
     zval result;
     zval data_var;
+    zval path_var;
     zend_string *output = NULL;
     zend_array *symbol_table;
-    const char *compiled_code = ZSTR_VAL(compiled);
-    size_t compiled_len = ZSTR_LEN(compiled);
 
-    if (compiled_len >= 5 && memcmp(compiled_code, "<?php", 5) == 0) {
-        compiled_code += 5;
-        compiled_len -= 5;
-    }
-
-    smart_str_appends(&code, "(static function($__templix_data) { extract($__templix_data, EXTR_SKIP); ob_start();\n");
-    smart_str_appendl(&code, compiled_code, compiled_len);
-    smart_str_appends(&code, "\nreturn ob_get_clean(); })($__templix_data);");
+    smart_str_appends(&code, "(static function($__templix_path, $__templix_data) { extract($__templix_data, EXTR_SKIP); ob_start(); include $__templix_path; return ob_get_clean(); })($__templix_path, $__templix_data);");
     smart_str_0(&code);
 
     symbol_table = zend_rebuild_symbol_table();
+    ZVAL_STR_COPY(&path_var, cache_path);
     ZVAL_COPY(&data_var, data);
+    zend_hash_str_update(symbol_table, "__templix_path", sizeof("__templix_path") - 1, &path_var);
     zend_hash_str_update(symbol_table, "__templix_data", sizeof("__templix_data") - 1, &data_var);
 
     ZVAL_UNDEF(&result);
@@ -211,6 +220,7 @@ static zend_string *templix_execute_compiled(zend_string *compiled, zval *data)
         zval_ptr_dtor(&result);
     }
     zend_hash_str_del(symbol_table, "__templix_data", sizeof("__templix_data") - 1);
+    zend_hash_str_del(symbol_table, "__templix_path", sizeof("__templix_path") - 1);
     zend_string_release(code.s);
 
     return output;
@@ -298,7 +308,6 @@ PHP_METHOD(Templix_Engine, render)
     templix_engine_object *intern = Z_TEMPLIX_ENGINE_P(ZEND_THIS);
     zend_string *source_path;
     zend_string *cache_path;
-    zend_string *compiled;
     zend_string *output;
     zval empty_data;
     zend_bool prod_mode;
@@ -341,19 +350,8 @@ PHP_METHOD(Templix_Engine, render)
         }
     }
 
-    compiled = templix_read_file(cache_path);
-    if (!compiled) {
-        if (&empty_data == data) {
-            zval_ptr_dtor(&empty_data);
-        }
-        zend_string_release(source_path);
-        zend_string_release(cache_path);
-        RETURN_FALSE;
-    }
+    output = templix_execute_compiled_file(cache_path, data);
 
-    output = templix_execute_compiled(compiled, data);
-
-    zend_string_release(compiled);
     zend_string_release(source_path);
     zend_string_release(cache_path);
 
