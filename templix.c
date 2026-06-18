@@ -35,52 +35,62 @@ static zend_object_handlers templix_engine_handlers;
 PHP_FUNCTION(templix_escape)
 {
     zend_string *input;
+    const char *chunk_start;
     const char *cursor;
     const char *end;
     smart_str output = {0};
-    zend_bool changed = 0;
 
     ZEND_PARSE_PARAMETERS_START(1, 1)
         Z_PARAM_STR(input)
     ZEND_PARSE_PARAMETERS_END();
 
-    cursor = ZSTR_VAL(input);
+    chunk_start = ZSTR_VAL(input);
+    cursor = chunk_start;
     end = cursor + ZSTR_LEN(input);
 
     while (cursor < end) {
         switch (*cursor) {
             case '&':
+                smart_str_appendl(&output, chunk_start, cursor - chunk_start);
                 smart_str_appends(&output, "&amp;");
-                changed = 1;
+                cursor++;
+                chunk_start = cursor;
                 break;
             case '<':
+                smart_str_appendl(&output, chunk_start, cursor - chunk_start);
                 smart_str_appends(&output, "&lt;");
-                changed = 1;
+                cursor++;
+                chunk_start = cursor;
                 break;
             case '>':
+                smart_str_appendl(&output, chunk_start, cursor - chunk_start);
                 smart_str_appends(&output, "&gt;");
-                changed = 1;
+                cursor++;
+                chunk_start = cursor;
                 break;
             case '"':
+                smart_str_appendl(&output, chunk_start, cursor - chunk_start);
                 smart_str_appends(&output, "&quot;");
-                changed = 1;
+                cursor++;
+                chunk_start = cursor;
                 break;
             case '\'':
+                smart_str_appendl(&output, chunk_start, cursor - chunk_start);
                 smart_str_appends(&output, "&#039;");
-                changed = 1;
+                cursor++;
+                chunk_start = cursor;
                 break;
             default:
-                smart_str_appendc(&output, *cursor);
+                cursor++;
                 break;
         }
-        cursor++;
     }
 
-    if (!changed) {
-        smart_str_free(&output);
+    if (!output.s) {
         RETURN_STR_COPY(input);
     }
 
+    smart_str_appendl(&output, chunk_start, end - chunk_start);
     smart_str_0(&output);
     RETURN_STR(output.s);
 }

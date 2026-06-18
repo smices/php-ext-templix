@@ -1,6 +1,6 @@
 # Templix Laravel Volt Production Test Report
 
-- Generated at: `2026-06-18T08:16:18+00:00`
+- Generated at: `2026-06-18T08:49:31+00:00`
 - Laravel: `13.16.1`
 - PHP: `8.5.7`
 - APP_ENV: `production`
@@ -17,9 +17,9 @@
 
 | Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |
 |---|---:|---:|---:|---:|---:|
-| `templix_prod_standard` | 24.62 | 1230870.65 | 40.622 | 0.812 | 14927014 |
-| `templix_prod_extreme` | 27.11 | 1355550.81 | 36.885 | 0.738 | 14927014 |
-| `laravel_blade_compiled` | 13.28 | 663886.46 | 75.314 | 1.506 | 14677011 |
+| `templix_prod_standard` | 29.33 | 1466706.97 | 34.090 | 0.682 | 14927014 |
+| `templix_prod_extreme` | 29.30 | 1464869.39 | 34.133 | 0.683 | 14927014 |
+| `laravel_blade_compiled` | 13.49 | 674490.13 | 74.130 | 1.483 | 14677011 |
 
 ## Modes
 
