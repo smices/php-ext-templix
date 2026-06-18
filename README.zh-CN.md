@@ -1,0 +1,108 @@
+# Templix
+
+语言：[English](README.md) | [中文](README.zh-CN.md)
+
+Templix 是一个 PHP 8.x C 模板扩展，目标是加速 Laravel Volt / Blade 风格模板渲染。它面向高频渲染场景，例如金融行情看板、实时风控视图、交易运营页面、报表页面，以及其他对延迟敏感的 PHP 模板生成路径。
+
+Templix 默认保持 Laravel 兼容：使用 `.blade.php`、`{{ }}`、`{!! !!}`、Blade 控制指令和原生 PHP block。
+
+## 当前状态
+
+当前 MVP：
+
+- `Templix\Engine`
+- `.blade.php` 模板查找
+- 编译 PHP 缓存文件
+- `dev` / `prod` 模式
+- prod compiled-cache fast path
+- 转义输出 / 原始输出
+- `@if`、`@elseif`、`@else`、`@endif`
+- `@foreach`、`@endforeach`
+- `@isset`、`@endisset`、`@empty`、`@endempty`
+- 原生 PHP block
+- Volt 风格单文件组件 smoke 测试
+
+## 编译
+
+```bash
+phpize
+./configure --enable-templix
+make
+```
+
+构建产物：
+
+```text
+modules/templix.so
+```
+
+## 单独使用
+
+```php
+$engine = new Templix\Engine([
+    'mode' => 'prod',
+    'path' => __DIR__ . '/views',
+    'cache' => __DIR__ . '/cache/templix',
+]);
+
+echo $engine->render('quotes/ticker', [
+    'symbol' => 'BTC-USD',
+    'price' => '104250.50',
+]);
+```
+
+模板文件：
+
+```text
+views/quotes/ticker.blade.php
+```
+
+```blade
+<span>{{ $symbol }}</span>
+<strong>{{ $price }}</strong>
+```
+
+## 与 Laravel 集成
+
+Laravel 集成方式是注册一个 view engine，把 `.blade.php` 渲染委托给 `Templix\Engine`。
+
+目标形态：
+
+```php
+$this->app->singleton(Templix\Engine::class, fn ($app) => new Templix\Engine([
+    'mode' => $app->environment('production') ? 'prod' : 'dev',
+    'path' => resource_path('views'),
+    'cache' => storage_path('framework/views/templix'),
+]));
+
+$this->app['view']->addExtension('blade.php', 'templix', fn () =>
+    new LaravelTemplixViewEngine($this->app->make(Templix\Engine::class))
+);
+```
+
+详细说明见 [docs/laravel-template-engine.md](docs/laravel-template-engine.md)。
+
+## 测试
+
+```bash
+make test TESTS=tests/php8
+```
+
+## 性能对比
+
+```bash
+php -d extension=modules/templix.so bench/templix_vs_laravel_volt.php --iterations=5000
+```
+
+benchmark 对比：
+
+- Templix prod cache 渲染 Volt 风格组件
+- Laravel Blade 风格 compiled PHP include
+- Volt 风格 compiled PHP include
+- 简单 Templix 基线模板
+
+CI 或报告需要结构化结果时使用 `--json`。
+
+## 许可证
+
+MIT License. Copyright (c) 2026 MISSU.LINK.

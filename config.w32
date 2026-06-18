@@ -1,0 +1,5 @@
+ARG_ENABLE("templix", "Enable templix support", "no");
+
+if (PHP_TEMPLIX != "no") {
+    EXTENSION("templix", "templix.c engine/compiler.c engine/renderer.c");
+}
