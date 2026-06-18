@@ -36,6 +36,18 @@ The built module is:
 modules/templix.so
 ```
 
+Load it for one command:
+
+```bash
+php -d extension=/absolute/path/to/modules/templix.so --ri templix
+```
+
+Or enable it in production PHP config:
+
+```ini
+extension=/absolute/path/to/templix.so
+```
+
 ## Standalone Usage
 
 ```php

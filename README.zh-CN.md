@@ -36,6 +36,18 @@ make
 modules/templix.so
 ```
 
+单次命令加载：
+
+```bash
+php -d extension=/absolute/path/to/modules/templix.so --ri templix
+```
+
+生产环境写入 PHP 配置：
+
+```ini
+extension=/absolute/path/to/templix.so
+```
+
 ## 单独使用
 
 ```php

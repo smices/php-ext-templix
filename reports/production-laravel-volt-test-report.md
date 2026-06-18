@@ -1,6 +1,6 @@
 # Templix Laravel Volt Production Test Report
 
-- Generated at: `2026-06-18T09:25:04+00:00`
+- Generated at: `2026-06-18T09:51:56+00:00`
 - Laravel: `13.16.1`
 - PHP: `8.5.7`
 - APP_ENV: `production`
@@ -17,15 +17,15 @@
 
 | Array rows/render | Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |
 |---:|---|---:|---:|---:|---:|---:|
-| 100 | `templix_prod_standard` | 11843.78 | 1184378.05 | 0.084 | 0.844 | 29855 |
-| 100 | `templix_prod_extreme` | 12056.79 | 1205678.65 | 0.083 | 0.829 | 29855 |
-| 100 | `laravel_blade_compiled` | 5802.68 | 580268.01 | 0.172 | 1.723 | 29352 |
-| 5000 | `templix_prod_standard` | 315.49 | 1577455.01 | 3.170 | 0.634 | 1488034 |
-| 5000 | `templix_prod_extreme` | 314.56 | 1572801.02 | 3.179 | 0.636 | 1488034 |
-| 5000 | `laravel_blade_compiled` | 134.32 | 671589.94 | 7.445 | 1.489 | 1463031 |
-| 50000 | `templix_prod_standard` | 30.46 | 1522759.47 | 32.835 | 0.657 | 14927014 |
-| 50000 | `templix_prod_extreme` | 30.63 | 1531336.19 | 32.651 | 0.653 | 14927014 |
-| 50000 | `laravel_blade_compiled` | 13.16 | 658074.05 | 75.979 | 1.520 | 14677011 |
+| 100 | `templix_prod_standard` | 11662.72 | 1166271.61 | 0.086 | 0.857 | 29855 |
+| 100 | `templix_prod_extreme` | 12707.42 | 1270742.33 | 0.079 | 0.787 | 29855 |
+| 100 | `laravel_blade_compiled` | 5716.30 | 571630.05 | 0.175 | 1.749 | 29352 |
+| 5000 | `templix_prod_standard` | 301.19 | 1505943.58 | 3.320 | 0.664 | 1488034 |
+| 5000 | `templix_prod_extreme` | 305.03 | 1525165.22 | 3.278 | 0.656 | 1488034 |
+| 5000 | `laravel_blade_compiled` | 133.60 | 668014.13 | 7.485 | 1.497 | 1463031 |
+| 50000 | `templix_prod_standard` | 31.38 | 1568927.70 | 31.869 | 0.637 | 14927014 |
+| 50000 | `templix_prod_extreme` | 31.22 | 1561163.09 | 32.027 | 0.641 | 14927014 |
+| 50000 | `laravel_blade_compiled` | 13.40 | 670016.31 | 74.625 | 1.493 | 14677011 |
 
 ## Modes
 

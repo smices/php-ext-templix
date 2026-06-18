@@ -1,0 +1,177 @@
+{
+    "generated_at": "2026-06-18T09:52:52+00:00",
+    "environment": {
+        "php_version": "8.5.7",
+        "memory_limit": "512M",
+        "templix_loaded": true,
+        "phalcon_loaded": true,
+        "phalcon_version": "5.12.1",
+        "opcache_cli_enabled": true,
+        "opcache_validate_timestamps": "0"
+    },
+    "dataset": {
+        "type": "synthetic_equity_quotes",
+        "row_sets": [
+            100,
+            5000,
+            50000
+        ],
+        "fields": [
+            "symbol",
+            "name",
+            "price",
+            "change",
+            "volume",
+            "risk"
+        ]
+    },
+    "cache": {
+        "templix_compiled_path": "/private/tmp/templix-phalcon-volt.mjCjFq/cache/templix/market_quotes.blade.php.php",
+        "templix_compiled_bytes": 1546,
+        "phalcon_volt_compiled_path": "/private/tmp/templix-phalcon-volt.mjCjFq/cache/volt/_private_tmp_templix-phalcon-volt.mjcjfq_views_volt_market_quotes.volt.php",
+        "phalcon_volt_compiled_bytes": 1813
+    },
+    "scenarios": [
+        {
+            "rows": 100,
+            "results": {
+                "templix_prod_standard": {
+                    "iterations": 50,
+                    "rows_per_render": 100,
+                    "total_rows_rendered": 5000,
+                    "seconds": 0.004130125,
+                    "renders_per_second": 12106.171120728792,
+                    "rows_per_second": 1210617.1120728792,
+                    "milliseconds_per_render": 0.0826025,
+                    "microseconds_per_row": 0.826025,
+                    "output_bytes": 29855,
+                    "output_sha256": "dd7fda0c71baafa9491c0618e72366f0e94ee6a389af52b5649879c010721c8e",
+                    "memory_before_bytes": 2097152,
+                    "peak_memory_delta_bytes": 0
+                },
+                "templix_prod_extreme": {
+                    "iterations": 50,
+                    "rows_per_render": 100,
+                    "total_rows_rendered": 5000,
+                    "seconds": 0.003770041,
+                    "renders_per_second": 13262.455235897965,
+                    "rows_per_second": 1326245.5235897964,
+                    "milliseconds_per_render": 0.07540082,
+                    "microseconds_per_row": 0.7540082,
+                    "output_bytes": 29855,
+                    "output_sha256": "dd7fda0c71baafa9491c0618e72366f0e94ee6a389af52b5649879c010721c8e",
+                    "memory_before_bytes": 2097152,
+                    "peak_memory_delta_bytes": 0
+                },
+                "phalcon_volt_compiled": {
+                    "iterations": 50,
+                    "rows_per_render": 100,
+                    "total_rows_rendered": 5000,
+                    "seconds": 0.004852708,
+                    "renders_per_second": 10303.525371813017,
+                    "rows_per_second": 1030352.5371813017,
+                    "milliseconds_per_render": 0.09705416,
+                    "microseconds_per_row": 0.9705415999999999,
+                    "output_bytes": 29352,
+                    "output_sha256": "dd7fda0c71baafa9491c0618e72366f0e94ee6a389af52b5649879c010721c8e",
+                    "memory_before_bytes": 2097152,
+                    "peak_memory_delta_bytes": 0
+                }
+            }
+        },
+        {
+            "rows": 5000,
+            "results": {
+                "templix_prod_standard": {
+                    "iterations": 50,
+                    "rows_per_render": 5000,
+                    "total_rows_rendered": 250000,
+                    "seconds": 0.156437333,
+                    "renders_per_second": 319.6168014447037,
+                    "rows_per_second": 1598084.0072235186,
+                    "milliseconds_per_render": 3.12874666,
+                    "microseconds_per_row": 0.625749332,
+                    "output_bytes": 1488034,
+                    "output_sha256": "19d14b213e9eb5a1811aaaf91ef4e72e9a79d9539233bb41c0f91bb3a6b5d44b",
+                    "memory_before_bytes": 10485760,
+                    "peak_memory_delta_bytes": 2097152
+                },
+                "templix_prod_extreme": {
+                    "iterations": 50,
+                    "rows_per_render": 5000,
+                    "total_rows_rendered": 250000,
+                    "seconds": 0.156856292,
+                    "renders_per_second": 318.7631134363421,
+                    "rows_per_second": 1593815.5671817104,
+                    "milliseconds_per_render": 3.13712584,
+                    "microseconds_per_row": 0.6274251679999999,
+                    "output_bytes": 1488034,
+                    "output_sha256": "19d14b213e9eb5a1811aaaf91ef4e72e9a79d9539233bb41c0f91bb3a6b5d44b",
+                    "memory_before_bytes": 12582912,
+                    "peak_memory_delta_bytes": 0
+                },
+                "phalcon_volt_compiled": {
+                    "iterations": 50,
+                    "rows_per_render": 5000,
+                    "total_rows_rendered": 250000,
+                    "seconds": 0.202312917,
+                    "renders_per_second": 247.14190641618794,
+                    "rows_per_second": 1235709.5320809397,
+                    "milliseconds_per_render": 4.04625834,
+                    "microseconds_per_row": 0.8092516679999999,
+                    "output_bytes": 1463031,
+                    "output_sha256": "19d14b213e9eb5a1811aaaf91ef4e72e9a79d9539233bb41c0f91bb3a6b5d44b",
+                    "memory_before_bytes": 12582912,
+                    "peak_memory_delta_bytes": 0
+                }
+            }
+        },
+        {
+            "rows": 50000,
+            "results": {
+                "templix_prod_standard": {
+                    "iterations": 50,
+                    "rows_per_render": 50000,
+                    "total_rows_rendered": 2500000,
+                    "seconds": 1.678006958,
+                    "renders_per_second": 29.797254273363983,
+                    "rows_per_second": 1489862.713668199,
+                    "milliseconds_per_render": 33.56013916,
+                    "microseconds_per_row": 0.6712027832,
+                    "output_bytes": 14927014,
+                    "output_sha256": "3e1ea0c71ee241a8ee90bcfdf00945a97a02aa886490ed5ee62689e5c3e67660",
+                    "memory_before_bytes": 77856768,
+                    "peak_memory_delta_bytes": 12959744
+                },
+                "templix_prod_extreme": {
+                    "iterations": 50,
+                    "rows_per_render": 50000,
+                    "total_rows_rendered": 2500000,
+                    "seconds": 1.686631416,
+                    "renders_per_second": 29.64488834115254,
+                    "rows_per_second": 1482244.417057627,
+                    "milliseconds_per_render": 33.732628319999996,
+                    "microseconds_per_row": 0.6746525664,
+                    "output_bytes": 14927014,
+                    "output_sha256": "3e1ea0c71ee241a8ee90bcfdf00945a97a02aa886490ed5ee62689e5c3e67660",
+                    "memory_before_bytes": 94896128,
+                    "peak_memory_delta_bytes": 0
+                },
+                "phalcon_volt_compiled": {
+                    "iterations": 50,
+                    "rows_per_render": 50000,
+                    "total_rows_rendered": 2500000,
+                    "seconds": 2.030917084,
+                    "renders_per_second": 24.61941966706111,
+                    "rows_per_second": 1230970.9833530555,
+                    "milliseconds_per_render": 40.61834168,
+                    "microseconds_per_row": 0.8123668336000001,
+                    "output_bytes": 14677011,
+                    "output_sha256": "3e1ea0c71ee241a8ee90bcfdf00945a97a02aa886490ed5ee62689e5c3e67660",
+                    "memory_before_bytes": 94896128,
+                    "peak_memory_delta_bytes": 0
+                }
+            }
+        }
+    ]
+}
