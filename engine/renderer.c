@@ -274,8 +274,9 @@ static void templix_append_foreach(
         zval *value;
         zend_string *key;
         zend_string *rendered;
+        uint32_t data_size = zend_hash_num_elements(Z_ARRVAL_P(data));
 
-        array_init_size(&loop_data, zend_hash_num_elements(Z_ARRVAL_P(data)) + 1);
+        array_init_size(&loop_data, data_size == UINT32_MAX ? data_size : data_size + 1);
 
         ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(data), key, value) {
             if (key) {

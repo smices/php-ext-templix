@@ -60,6 +60,9 @@ static zend_string *templix_trim_expression(const char *start, size_t len)
 static const char *templix_find_directive_close(const char *open, const char *end)
 {
     const char *cursor = open;
+    size_t depth = 0;
+    char quote = '\0';
+    zend_bool escaped = 0;
 
     while (cursor < end && isspace((unsigned char)*cursor)) {
         cursor++;
@@ -70,10 +73,38 @@ static const char *templix_find_directive_close(const char *open, const char *en
     }
 
     while (cursor < end) {
-        if (*cursor == ')') {
-            return cursor + 1;
+        char c = *cursor++;
+
+        if (quote) {
+            if (escaped) {
+                escaped = 0;
+            } else if (c == '\\') {
+                escaped = 1;
+            } else if (c == quote) {
+                quote = '\0';
+            }
+            continue;
         }
-        cursor++;
+
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+
+        if (c == '(') {
+            depth++;
+            continue;
+        }
+
+        if (c == ')') {
+            if (depth == 0) {
+                return NULL;
+            }
+            depth--;
+            if (depth == 0) {
+                return cursor;
+            }
+        }
     }
 
     return NULL;
@@ -148,8 +179,8 @@ static zend_bool templix_is_safe_number_format_expression(zend_string *expr)
 {
     const char *cursor = ZSTR_VAL(expr);
     const char *end = cursor + ZSTR_LEN(expr);
-    int depth = 0;
-    int comma_count = 0;
+    size_t depth = 0;
+    size_t comma_count = 0;
     char quote = '\0';
     zend_bool escaped = 0;
 
@@ -199,15 +230,15 @@ static zend_bool templix_is_safe_number_format_expression(zend_string *expr)
         }
 
         if (c == ')' || c == ']' || c == '}') {
+            if (depth == 0) {
+                return 0;
+            }
             depth--;
             if (depth == 0) {
                 while (cursor < end && isspace((unsigned char)*cursor)) {
                     cursor++;
                 }
                 return cursor == end && comma_count <= 1;
-            }
-            if (depth < 0) {
-                return 0;
             }
             continue;
         }

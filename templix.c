@@ -147,6 +147,41 @@ static zend_string *templix_join_path(zend_string *left, zend_string *right)
     return path.s;
 }
 
+static zend_bool templix_is_valid_template_name(zend_string *name)
+{
+    const char *start = ZSTR_VAL(name);
+    const char *cursor = start;
+    const char *end = start + ZSTR_LEN(name);
+    const char *segment = start;
+
+    if (start == end) {
+        return 0;
+    }
+
+    if (*start == '/' || *start == '\\') {
+        return 0;
+    }
+
+    while (cursor < end) {
+        char c = *cursor;
+        if (c == '\0' || c == '\\' || c == ':') {
+            return 0;
+        }
+
+        if (c == '/') {
+            size_t segment_len = cursor - segment;
+            if (segment_len == 0 || (segment_len == 2 && segment[0] == '.' && segment[1] == '.')) {
+                return 0;
+            }
+            segment = cursor + 1;
+        }
+
+        cursor++;
+    }
+
+    return cursor > segment && !(cursor - segment == 2 && segment[0] == '.' && segment[1] == '.');
+}
+
 static zend_string *templix_source_path(templix_engine_object *intern, zend_string *name)
 {
     smart_str relative = {0};
@@ -195,15 +230,18 @@ static zend_string *templix_cache_path(templix_engine_object *intern, zend_strin
 
 static zend_string *templix_execute_compiled_file(zend_string *cache_path, zval *data)
 {
-    smart_str code = {0};
+    static const char templix_wrapper[] =
+        "(static function($__templix_path, $__templix_data) { "
+        "extract($__templix_data, EXTR_SKIP); "
+        "ob_start(); "
+        "include $__templix_path; "
+        "return ob_get_clean(); "
+        "})($__templix_path, $__templix_data);";
     zval result;
     zval data_var;
     zval path_var;
     zend_string *output = NULL;
     zend_array *symbol_table;
-
-    smart_str_appends(&code, "(static function($__templix_path, $__templix_data) { extract($__templix_data, EXTR_SKIP); ob_start(); include $__templix_path; return ob_get_clean(); })($__templix_path, $__templix_data);");
-    smart_str_0(&code);
 
     symbol_table = zend_rebuild_symbol_table();
     ZVAL_STR_COPY(&path_var, cache_path);
@@ -212,7 +250,7 @@ static zend_string *templix_execute_compiled_file(zend_string *cache_path, zval 
     zend_hash_str_update(symbol_table, "__templix_data", sizeof("__templix_data") - 1, &data_var);
 
     ZVAL_UNDEF(&result);
-    if (zend_eval_stringl(ZSTR_VAL(code.s), ZSTR_LEN(code.s), &result, "Templix compiled template") == SUCCESS && !EG(exception)) {
+    if (zend_eval_stringl(templix_wrapper, sizeof(templix_wrapper) - 1, &result, "Templix compiled template") == SUCCESS && !EG(exception)) {
         output = zval_get_string(&result);
     }
 
@@ -221,7 +259,6 @@ static zend_string *templix_execute_compiled_file(zend_string *cache_path, zval 
     }
     zend_hash_str_del(symbol_table, "__templix_data", sizeof("__templix_data") - 1);
     zend_hash_str_del(symbol_table, "__templix_path", sizeof("__templix_path") - 1);
-    zend_string_release(code.s);
 
     return output;
 }
@@ -326,6 +363,10 @@ PHP_METHOD(Templix_Engine, render)
         zend_throw_error(NULL, "Templix\\Engine requires a non-empty cache configuration");
         RETURN_THROWS();
     }
+    if (!templix_is_valid_template_name(name)) {
+        zend_throw_error(NULL, "Invalid Templix template name");
+        RETURN_THROWS();
+    }
 
     if (!data) {
         array_init(&empty_data);
@@ -376,7 +417,7 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_templix_engine_render, 0, 1, IS_
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_templix_escape, 0, 1, IS_STRING, 0)
-    ZEND_ARG_TYPE_INFO(0, value, IS_STRING, 0)
+    ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
 static const zend_function_entry templix_engine_methods[] = {

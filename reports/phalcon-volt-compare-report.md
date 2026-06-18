@@ -1,6 +1,6 @@
 # Templix vs Phalcon Volt Report
 
-- Generated at: `2026-06-18T09:52:52+00:00`
+- Generated at: `2026-06-18T10:03:11+00:00`
 - PHP: `8.5.7`
 - memory_limit: `512M`
 - Templix loaded: `true`
@@ -14,15 +14,15 @@
 
 | Array rows/render | Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |
 |---:|---|---:|---:|---:|---:|---:|
-| 100 | `templix_prod_standard` | 12106.17 | 1210617.11 | 0.083 | 0.826 | 29855 |
-| 100 | `templix_prod_extreme` | 13262.46 | 1326245.52 | 0.075 | 0.754 | 29855 |
-| 100 | `phalcon_volt_compiled` | 10303.53 | 1030352.54 | 0.097 | 0.971 | 29352 |
-| 5000 | `templix_prod_standard` | 319.62 | 1598084.01 | 3.129 | 0.626 | 1488034 |
-| 5000 | `templix_prod_extreme` | 318.76 | 1593815.57 | 3.137 | 0.627 | 1488034 |
-| 5000 | `phalcon_volt_compiled` | 247.14 | 1235709.53 | 4.046 | 0.809 | 1463031 |
-| 50000 | `templix_prod_standard` | 29.80 | 1489862.71 | 33.560 | 0.671 | 14927014 |
-| 50000 | `templix_prod_extreme` | 29.64 | 1482244.42 | 33.733 | 0.675 | 14927014 |
-| 50000 | `phalcon_volt_compiled` | 24.62 | 1230970.98 | 40.618 | 0.812 | 14677011 |
+| 100 | `templix_prod_standard` | 12830.79 | 1283079.39 | 0.078 | 0.779 | 29855 |
+| 100 | `templix_prod_extreme` | 12957.56 | 1295756.40 | 0.077 | 0.772 | 29855 |
+| 100 | `phalcon_volt_compiled` | 10508.62 | 1050861.71 | 0.095 | 0.952 | 29352 |
+| 5000 | `templix_prod_standard` | 325.97 | 1629870.52 | 3.068 | 0.614 | 1488034 |
+| 5000 | `templix_prod_extreme` | 324.49 | 1622455.66 | 3.082 | 0.616 | 1488034 |
+| 5000 | `phalcon_volt_compiled` | 256.27 | 1281329.03 | 3.902 | 0.780 | 1463031 |
+| 50000 | `templix_prod_standard` | 31.41 | 1570695.80 | 31.833 | 0.637 | 14927014 |
+| 50000 | `templix_prod_extreme` | 31.44 | 1572028.75 | 31.806 | 0.636 | 14927014 |
+| 50000 | `phalcon_volt_compiled` | 25.11 | 1255336.54 | 39.830 | 0.797 | 14677011 |
 
 ## Notes
 
