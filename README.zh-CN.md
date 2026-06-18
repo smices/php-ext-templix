@@ -80,7 +80,11 @@ $this->app['view']->addExtension('blade.php', 'templix', fn () =>
 );
 ```
 
-详细说明见 [docs/laravel-template-engine.md](docs/laravel-template-engine.md)。
+详细说明：
+
+- [Templix 使用手册](docs/user-manual.zh-CN.md)
+- [Templix 兼容性报告](docs/compatibility-report.zh-CN.md)
+- [Laravel template engine support](docs/laravel-template-engine.md)
 
 ## 测试
 
