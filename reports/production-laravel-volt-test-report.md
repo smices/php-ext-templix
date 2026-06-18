@@ -1,6 +1,6 @@
 # Templix Laravel Volt Production Test Report
 
-- Generated at: `2026-06-18T08:49:31+00:00`
+- Generated at: `2026-06-18T09:13:34+00:00`
 - Laravel: `13.16.1`
 - PHP: `8.5.7`
 - APP_ENV: `production`
@@ -11,15 +11,21 @@
 - Templix loaded: `true`
 - OPcache CLI: `true`
 - OPcache validate timestamps: `0`
-- Dataset: `50000` synthetic equity quote rows
+- Array row sets per render: `100, 5000, 50000` synthetic equity quote rows
 
 ## Results
 
-| Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |
-|---|---:|---:|---:|---:|---:|
-| `templix_prod_standard` | 29.33 | 1466706.97 | 34.090 | 0.682 | 14927014 |
-| `templix_prod_extreme` | 29.30 | 1464869.39 | 34.133 | 0.683 | 14927014 |
-| `laravel_blade_compiled` | 13.49 | 674490.13 | 74.130 | 1.483 | 14677011 |
+| Array rows/render | Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |
+|---:|---|---:|---:|---:|---:|---:|
+| 100 | `templix_prod_standard` | 11126.05 | 1112604.72 | 0.090 | 0.899 | 29855 |
+| 100 | `templix_prod_extreme` | 11782.38 | 1178237.95 | 0.085 | 0.849 | 29855 |
+| 100 | `laravel_blade_compiled` | 5954.74 | 595474.44 | 0.168 | 1.679 | 29352 |
+| 5000 | `templix_prod_standard` | 297.33 | 1486633.68 | 3.363 | 0.673 | 1488034 |
+| 5000 | `templix_prod_extreme` | 298.86 | 1494310.41 | 3.346 | 0.669 | 1488034 |
+| 5000 | `laravel_blade_compiled` | 134.48 | 672381.16 | 7.436 | 1.487 | 1463031 |
+| 50000 | `templix_prod_standard` | 27.87 | 1393589.61 | 35.879 | 0.718 | 14927014 |
+| 50000 | `templix_prod_extreme` | 26.97 | 1348461.12 | 37.079 | 0.742 | 14927014 |
+| 50000 | `laravel_blade_compiled` | 12.34 | 617096.75 | 81.025 | 1.620 | 14677011 |
 
 ## Modes
 

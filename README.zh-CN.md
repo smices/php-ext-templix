@@ -106,11 +106,13 @@ CI 或报告需要结构化结果时使用 `--json`。
 ## 生产 Laravel / Volt 测试
 
 脚本会创建或复用真实 Laravel 应用，安装 `livewire/volt`，使用生产配置、
-OPcache CLI 和大量模拟股票行情数据：
+OPcache CLI，并覆盖小量、中等、大量三档传入模板的股票行情数组：
 
 ```bash
-ROWS=50000 ITERATIONS=3 MEMORY_LIMIT=512M scripts/production-laravel-volt-test.sh
+ROW_SETS=100,5000,50000 ITERATIONS=5000 MEMORY_LIMIT=512M scripts/production-laravel-volt-test.sh
 ```
+
+`ROW_SETS` 是每次渲染传给模板的数组行数；`ITERATIONS` 只是重复渲染采样次数。
 
 报告输出：
 

@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PHP_BIN="${PHP_BIN:-php}"
 PHPIZE_BIN="${PHPIZE_BIN:-phpize}"
 ROWS="${ROWS:-10000}"
-ITERATIONS="${ITERATIONS:-5}"
+ROW_SETS="${ROW_SETS:-100,5000,50000}"
+ITERATIONS="${ITERATIONS:-50}"
 WARMUPS="${WARMUPS:-1}"
 MEMORY_LIMIT="${MEMORY_LIMIT:-512M}"
 APP_DIR="${APP_DIR:-}"
@@ -241,24 +242,19 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 $args = getopt('', [
     'rows::',
+    'row-sets::',
     'iterations::',
     'warmups::',
     'report-json::',
     'report-md::',
 ]);
 
-$rows = max(1, (int) ($args['rows'] ?? 10000));
+$rowSetInput = (string) ($args['row-sets'] ?? ($args['rows'] ?? '10000'));
+$rowSets = parseRowSets($rowSetInput);
 $iterations = max(1, (int) ($args['iterations'] ?? 5));
 $warmups = max(0, (int) ($args['warmups'] ?? 1));
 $reportJson = $args['report-json'] ?? null;
 $reportMd = $args['report-md'] ?? null;
-
-$data = [
-    'marketName' => 'Production Equity Risk Board',
-    'count' => $rows,
-    'renderedAt' => gmdate('c'),
-    'stocks' => generateStocks($rows),
-];
 
 $templix = $app->make(TemplixEngine::class);
 $templixExtreme = new TemplixEngine([
@@ -277,9 +273,10 @@ if (!class_exists(Livewire\Volt\Volt::class)) {
     throw new RuntimeException('livewire/volt is not installed.');
 }
 
-$standardSample = view($viewName, $data)->render();
-$templix->render($templateName, $data);
-$templixExtreme->render($templateName, $data);
+$compileData = buildData($rowSets[0]);
+$standardSample = view($viewName, $compileData)->render();
+$templix->render($templateName, $compileData);
+$templixExtreme->render($templateName, $compileData);
 
 if (!is_file($compiledPath)) {
     throw new RuntimeException("Templix compiled cache not found: {$compiledPath}");
@@ -299,52 +296,67 @@ if (function_exists('opcache_compile_file')) {
     @opcache_compile_file($bladeCompiledPath);
 }
 
-$extremeSample = renderCompiled($extremeCompiledPath, $data);
-$bladeSample = renderCompiled($bladeCompiledPath, $data);
-$expectedHash = hash('sha256', normalizeHtml($standardSample));
+$scenarios = [];
+foreach ($rowSets as $rows) {
+    $data = buildData($rows);
+    $standardSample = view($viewName, $data)->render();
+    $extremeSample = renderCompiled($extremeCompiledPath, $data);
+    $bladeSample = renderCompiled($bladeCompiledPath, $data);
+    $expectedHash = hash('sha256', normalizeHtml($standardSample));
 
-assertSameHash('templix_prod_extreme', $expectedHash, $extremeSample);
-assertSameHash('laravel_blade_compiled', $expectedHash, $bladeSample);
+    assertSameHash("templix_prod_extreme rows={$rows}", $expectedHash, $extremeSample);
+    assertSameHash("laravel_blade_compiled rows={$rows}", $expectedHash, $bladeSample);
 
-$cases = [
-    'templix_prod_standard' => fn (): string => view($viewName, $data)->render(),
-    'templix_prod_extreme' => fn (): string => renderCompiled($extremeCompiledPath, $data),
-    'laravel_blade_compiled' => fn (): string => renderCompiled($bladeCompiledPath, $data),
-];
+    $cases = [
+        'templix_prod_standard' => fn (): string => view($viewName, $data)->render(),
+        'templix_prod_extreme' => fn (): string => renderCompiled($extremeCompiledPath, $data),
+        'laravel_blade_compiled' => fn (): string => renderCompiled($bladeCompiledPath, $data),
+    ];
 
-$results = [];
-foreach ($cases as $name => $case) {
-    for ($i = 0; $i < $warmups; $i++) {
-        $case();
+    $results = [];
+    foreach ($cases as $name => $case) {
+        for ($i = 0; $i < $warmups; $i++) {
+            $case();
+        }
+
+        gc_collect_cycles();
+        $memoryBefore = memory_get_usage(true);
+        $peakBefore = memory_get_peak_usage(true);
+        $start = hrtime(true);
+
+        $last = '';
+        for ($i = 0; $i < $iterations; $i++) {
+            $last = $case();
+        }
+
+        $elapsedNs = hrtime(true) - $start;
+        $peakAfter = memory_get_peak_usage(true);
+        $seconds = $elapsedNs / 1_000_000_000;
+
+        $results[$name] = [
+            'iterations' => $iterations,
+            'rows_per_render' => $rows,
+            'total_rows_rendered' => $rows * $iterations,
+            'seconds' => $seconds,
+            'renders_per_second' => $iterations / max($seconds, 0.000001),
+            'rows_per_second' => ($rows * $iterations) / max($seconds, 0.000001),
+            'milliseconds_per_render' => ($elapsedNs / 1_000_000) / $iterations,
+            'microseconds_per_row' => ($elapsedNs / 1000) / ($iterations * $rows),
+            'output_bytes' => strlen($last),
+            'output_sha256' => hash('sha256', normalizeHtml($last)),
+            'memory_before_bytes' => $memoryBefore,
+            'peak_memory_delta_bytes' => max(0, $peakAfter - $peakBefore),
+        ];
     }
 
-    gc_collect_cycles();
-    $memoryBefore = memory_get_usage(true);
-    $peakBefore = memory_get_peak_usage(true);
-    $start = hrtime(true);
-
-    $last = '';
-    for ($i = 0; $i < $iterations; $i++) {
-        $last = $case();
-    }
-
-    $elapsedNs = hrtime(true) - $start;
-    $peakAfter = memory_get_peak_usage(true);
-    $seconds = $elapsedNs / 1_000_000_000;
-
-    $results[$name] = [
-        'iterations' => $iterations,
-        'rows_per_render' => $rows,
-        'total_rows_rendered' => $rows * $iterations,
-        'seconds' => $seconds,
-        'renders_per_second' => $iterations / max($seconds, 0.000001),
-        'rows_per_second' => ($rows * $iterations) / max($seconds, 0.000001),
-        'milliseconds_per_render' => ($elapsedNs / 1_000_000) / $iterations,
-        'microseconds_per_row' => ($elapsedNs / 1000) / ($iterations * $rows),
-        'output_bytes' => strlen($last),
-        'output_sha256' => hash('sha256', normalizeHtml($last)),
-        'memory_before_bytes' => $memoryBefore,
-        'peak_memory_delta_bytes' => max(0, $peakAfter - $peakBefore),
+    $scenarios[] = [
+        'rows' => $rows,
+        'dataset' => [
+            'type' => 'synthetic_equity_quotes',
+            'rows' => $rows,
+            'fields' => ['symbol', 'name', 'price', 'change', 'volume', 'risk'],
+        ],
+        'results' => $results,
     ];
 }
 
@@ -366,7 +378,7 @@ $report = [
     ],
     'dataset' => [
         'type' => 'synthetic_equity_quotes',
-        'rows' => $rows,
+        'row_sets' => $rowSets,
         'fields' => ['symbol', 'name', 'price', 'change', 'volume', 'risk'],
     ],
     'cache' => [
@@ -377,7 +389,7 @@ $report = [
         'laravel_blade_compiled_path' => $bladeCompiledPath,
         'laravel_blade_compiled_bytes' => filesize($bladeCompiledPath),
     ],
-    'results' => $results,
+    'scenarios' => $scenarios,
 ];
 
 if ($reportJson) {
@@ -389,6 +401,27 @@ if ($reportMd) {
 }
 
 echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+
+function parseRowSets(string $input): array
+{
+    $rows = [];
+    foreach (explode(',', $input) as $value) {
+        $rowCount = max(1, (int) trim($value));
+        $rows[$rowCount] = $rowCount;
+    }
+
+    return array_values($rows);
+}
+
+function buildData(int $rows): array
+{
+    return [
+        'marketName' => 'Production Equity Risk Board',
+        'count' => $rows,
+        'renderedAt' => gmdate('c'),
+        'stocks' => generateStocks($rows),
+    ];
+}
 
 function generateStocks(int $rows): array
 {
@@ -451,23 +484,26 @@ function markdownReport(array $report): string
     $lines[] = '- Templix loaded: `' . ($report['environment']['templix_loaded'] ? 'true' : 'false') . '`';
     $lines[] = '- OPcache CLI: `' . ($report['environment']['opcache_cli_enabled'] ? 'true' : 'false') . '`';
     $lines[] = '- OPcache validate timestamps: `' . $report['environment']['opcache_validate_timestamps'] . '`';
-    $lines[] = '- Dataset: `' . $report['dataset']['rows'] . '` synthetic equity quote rows';
+    $lines[] = '- Array row sets per render: `' . implode(', ', $report['dataset']['row_sets']) . '` synthetic equity quote rows';
     $lines[] = '';
     $lines[] = '## Results';
     $lines[] = '';
-    $lines[] = '| Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |';
-    $lines[] = '|---|---:|---:|---:|---:|---:|';
+    $lines[] = '| Array rows/render | Case | Renders/s | Rows/s | ms/render | us/row | Output bytes |';
+    $lines[] = '|---:|---|---:|---:|---:|---:|---:|';
 
-    foreach ($report['results'] as $case => $row) {
-        $lines[] = sprintf(
-            '| `%s` | %.2f | %.2f | %.3f | %.3f | %d |',
-            $case,
-            $row['renders_per_second'],
-            $row['rows_per_second'],
-            $row['milliseconds_per_render'],
-            $row['microseconds_per_row'],
-            $row['output_bytes'],
-        );
+    foreach ($report['scenarios'] as $scenario) {
+        foreach ($scenario['results'] as $case => $row) {
+            $lines[] = sprintf(
+                '| %d | `%s` | %.2f | %.2f | %.3f | %.3f | %d |',
+                $scenario['rows'],
+                $case,
+                $row['renders_per_second'],
+                $row['rows_per_second'],
+                $row['milliseconds_per_render'],
+                $row['microseconds_per_row'],
+                $row['output_bytes'],
+            );
+        }
     }
 
     $lines[] = '';
@@ -515,13 +551,13 @@ configure_production() {
 }
 
 run_production_benchmark() {
-  log "Running production benchmark rows=$ROWS iterations=$ITERATIONS warmups=$WARMUPS"
+  log "Running production benchmark row_sets=$ROW_SETS iterations=$ITERATIONS warmups=$WARMUPS"
   rm -f "$REPORT_JSON" "$REPORT_MD"
   (
     cd "$APP_DIR"
     APP_ENV=production APP_DEBUG=false php_with_templix \
       scripts/templix-production-benchmark.php \
-      --rows="$ROWS" \
+      --row-sets="$ROW_SETS" \
       --iterations="$ITERATIONS" \
       --warmups="$WARMUPS" \
       --report-json="$REPORT_JSON" \

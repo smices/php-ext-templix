@@ -106,11 +106,15 @@ Use `--json` for CI or reports.
 ## Production Laravel / Volt Test
 
 Run the reproducible production test with a real Laravel app, `livewire/volt`,
-OPcache CLI, production config, and a large synthetic equity quote dataset:
+OPcache CLI, production config, and small / medium / large synthetic equity
+quote arrays assigned to the template on each render:
 
 ```bash
-ROWS=50000 ITERATIONS=3 MEMORY_LIMIT=512M scripts/production-laravel-volt-test.sh
+ROW_SETS=100,5000,50000 ITERATIONS=5000 MEMORY_LIMIT=512M scripts/production-laravel-volt-test.sh
 ```
+
+`ROW_SETS` controls the array rows per render. `ITERATIONS` controls repeat
+renders for sampling.
 
 The report is written to:
 
