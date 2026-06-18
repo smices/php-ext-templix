@@ -273,9 +273,9 @@ zend_string *templix_compile_source(zend_string *source)
             }
 
             expr = templix_trim_expression(tag + 2, close - (tag + 2));
-            smart_str_appends(&compiled, "echo htmlspecialchars((string) (");
+            smart_str_appends(&compiled, "echo \\Templix\\escape((string) (");
             smart_str_append(&compiled, expr);
-            smart_str_appends(&compiled, "), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');\n");
+            smart_str_appends(&compiled, "));\n");
             zend_string_release(expr);
             cursor = close + 2;
         }

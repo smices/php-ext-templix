@@ -1,0 +1,79 @@
+{
+    "generated_at": "2026-06-18T08:16:18+00:00",
+    "environment": {
+        "app_env": "production",
+        "app_debug": false,
+        "php_version": "8.5.7",
+        "memory_limit": "512M",
+        "laravel_version": "13.16.1",
+        "volt_installed": true,
+        "volt_version": "v1.10.5",
+        "templix_loaded": true,
+        "opcache_cli_enabled": true,
+        "opcache_validate_timestamps": "0"
+    },
+    "dataset": {
+        "type": "synthetic_equity_quotes",
+        "rows": 50000,
+        "fields": [
+            "symbol",
+            "name",
+            "price",
+            "change",
+            "volume",
+            "risk"
+        ]
+    },
+    "cache": {
+        "templix_compiled_path": "/private/tmp/templix-laravel-prod-test.QUFPaf/storage/framework/views/templix/market_quotes.blade.php.php",
+        "templix_compiled_bytes": 1866,
+        "templix_extreme_compiled_path": "/private/tmp/templix-laravel-prod-test.QUFPaf/storage/framework/views/templix-extreme/market_quotes.blade.php.php",
+        "templix_extreme_compiled_bytes": 1866,
+        "laravel_blade_compiled_path": "/private/tmp/templix-laravel-prod-test.QUFPaf/storage/framework/views/laravel_blade_market_quotes.php",
+        "laravel_blade_compiled_bytes": 3330
+    },
+    "results": {
+        "templix_prod_standard": {
+            "iterations": 3,
+            "rows_per_render": 50000,
+            "total_rows_rendered": 150000,
+            "seconds": 0.121864958,
+            "renders_per_second": 24.617412989220412,
+            "rows_per_second": 1230870.6494610207,
+            "milliseconds_per_render": 40.62165266666667,
+            "microseconds_per_row": 0.8124330533333334,
+            "output_bytes": 14927014,
+            "output_sha256": "4a2360a64b99bff05cfeff41184c9a16b2df6008ceb1de863ce73b1cd26e6d0d",
+            "memory_before_bytes": 94896128,
+            "peak_memory_delta_bytes": 12959744
+        },
+        "templix_prod_extreme": {
+            "iterations": 3,
+            "rows_per_render": 50000,
+            "total_rows_rendered": 150000,
+            "seconds": 0.110656125,
+            "renders_per_second": 27.111016222554333,
+            "rows_per_second": 1355550.8111277167,
+            "milliseconds_per_render": 36.885375,
+            "microseconds_per_row": 0.7377075,
+            "output_bytes": 14927014,
+            "output_sha256": "4a2360a64b99bff05cfeff41184c9a16b2df6008ceb1de863ce73b1cd26e6d0d",
+            "memory_before_bytes": 109838336,
+            "peak_memory_delta_bytes": 0
+        },
+        "laravel_blade_compiled": {
+            "iterations": 3,
+            "rows_per_render": 50000,
+            "total_rows_rendered": 150000,
+            "seconds": 0.22594225,
+            "renders_per_second": 13.277729154241847,
+            "rows_per_second": 663886.4577120923,
+            "milliseconds_per_render": 75.31408333333333,
+            "microseconds_per_row": 1.5062816666666667,
+            "output_bytes": 14677011,
+            "output_sha256": "4a2360a64b99bff05cfeff41184c9a16b2df6008ceb1de863ce73b1cd26e6d0d",
+            "memory_before_bytes": 109838336,
+            "peak_memory_delta_bytes": 0
+        }
+    }
+}

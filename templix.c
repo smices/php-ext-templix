@@ -26,12 +26,64 @@ typedef struct _templix_engine_object {
     zend_string *path;
     zend_string *cache;
     zend_string *extension;
-    zend_bool auto_escape;
     zend_object std;
 } templix_engine_object;
 
 static zend_class_entry *templix_engine_ce;
 static zend_object_handlers templix_engine_handlers;
+
+PHP_FUNCTION(templix_escape)
+{
+    zend_string *input;
+    const char *cursor;
+    const char *end;
+    smart_str output = {0};
+    zend_bool changed = 0;
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_STR(input)
+    ZEND_PARSE_PARAMETERS_END();
+
+    cursor = ZSTR_VAL(input);
+    end = cursor + ZSTR_LEN(input);
+
+    while (cursor < end) {
+        switch (*cursor) {
+            case '&':
+                smart_str_appends(&output, "&amp;");
+                changed = 1;
+                break;
+            case '<':
+                smart_str_appends(&output, "&lt;");
+                changed = 1;
+                break;
+            case '>':
+                smart_str_appends(&output, "&gt;");
+                changed = 1;
+                break;
+            case '"':
+                smart_str_appends(&output, "&quot;");
+                changed = 1;
+                break;
+            case '\'':
+                smart_str_appends(&output, "&#039;");
+                changed = 1;
+                break;
+            default:
+                smart_str_appendc(&output, *cursor);
+                break;
+        }
+        cursor++;
+    }
+
+    if (!changed) {
+        smart_str_free(&output);
+        RETURN_STR_COPY(input);
+    }
+
+    smart_str_0(&output);
+    RETURN_STR(output.s);
+}
 
 static inline templix_engine_object *templix_engine_from_obj(zend_object *obj)
 {
@@ -54,17 +106,6 @@ static zend_string *templix_config_string(HashTable *config, const char *key, si
     }
 
     return fallback ? zend_string_init(fallback, strlen(fallback), 0) : NULL;
-}
-
-static zend_bool templix_config_bool(HashTable *config, const char *key, size_t key_len, zend_bool fallback)
-{
-    zval *value;
-
-    if (config && (value = zend_hash_str_find(config, key, key_len)) != NULL) {
-        return zend_is_true(value);
-    }
-
-    return fallback;
 }
 
 static zend_string *templix_join_path(zend_string *left, zend_string *right)
@@ -176,7 +217,6 @@ static zend_object *templix_engine_create_object(zend_class_entry *class_type)
     intern->path = NULL;
     intern->cache = NULL;
     intern->extension = zend_string_init(".blade.php", sizeof(".blade.php") - 1, 0);
-    intern->auto_escape = 1;
 
     intern->std.handlers = &templix_engine_handlers;
 
@@ -239,7 +279,6 @@ PHP_METHOD(Templix_Engine, __construct)
     intern->path = path;
     intern->cache = cache;
     intern->extension = extension;
-    intern->auto_escape = templix_config_bool(config, "auto_escape", sizeof("auto_escape") - 1, 1);
 }
 
 PHP_METHOD(Templix_Engine, render)
@@ -328,9 +367,18 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_templix_engine_render, 0, 1, IS_
     ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, data, IS_ARRAY, 0, "[]")
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_templix_escape, 0, 1, IS_STRING, 0)
+    ZEND_ARG_TYPE_INFO(0, value, IS_STRING, 0)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry templix_engine_methods[] = {
     PHP_ME(Templix_Engine, __construct, arginfo_templix_engine_construct, ZEND_ACC_PUBLIC)
     PHP_ME(Templix_Engine, render, arginfo_templix_engine_render, ZEND_ACC_PUBLIC)
+    PHP_FE_END
+};
+
+static const zend_function_entry templix_functions[] = {
+    ZEND_NS_FENTRY("Templix", escape, PHP_FN(templix_escape), arginfo_templix_escape, 0)
     PHP_FE_END
 };
 
@@ -360,7 +408,7 @@ PHP_MINFO_FUNCTION(templix)
 zend_module_entry templix_module_entry = {
     STANDARD_MODULE_HEADER,
     "templix",
-    NULL,
+    templix_functions,
     PHP_MINIT(templix),
     NULL,
     NULL,

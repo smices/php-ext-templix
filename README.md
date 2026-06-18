@@ -103,6 +103,25 @@ The benchmark compares:
 
 Use `--json` for CI or reports.
 
+## Production Laravel / Volt Test
+
+Run the reproducible production test with a real Laravel app, `livewire/volt`,
+OPcache CLI, production config, and a large synthetic equity quote dataset:
+
+```bash
+ROWS=50000 ITERATIONS=3 MEMORY_LIMIT=512M scripts/production-laravel-volt-test.sh
+```
+
+The report is written to:
+
+```text
+reports/production-laravel-volt-test-report.md
+reports/production-laravel-volt-test-report.json
+```
+
+It compares `templix_prod_standard`, `templix_prod_extreme`, and
+`laravel_blade_compiled`.
+
 ## License
 
 MIT License. Copyright (c) 2026 MISSU.LINK.

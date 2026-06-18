@@ -103,6 +103,25 @@ benchmark 对比：
 
 CI 或报告需要结构化结果时使用 `--json`。
 
+## 生产 Laravel / Volt 测试
+
+脚本会创建或复用真实 Laravel 应用，安装 `livewire/volt`，使用生产配置、
+OPcache CLI 和大量模拟股票行情数据：
+
+```bash
+ROWS=50000 ITERATIONS=3 MEMORY_LIMIT=512M scripts/production-laravel-volt-test.sh
+```
+
+报告输出：
+
+```text
+reports/production-laravel-volt-test-report.md
+reports/production-laravel-volt-test-report.json
+```
+
+对比项包括 `templix_prod_standard`、`templix_prod_extreme` 和
+`laravel_blade_compiled`。
+
 ## 许可证
 
 MIT License. Copyright (c) 2026 MISSU.LINK.

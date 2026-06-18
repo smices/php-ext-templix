@@ -79,7 +79,7 @@ The Laravel-facing view engine adapter should implement Laravel's expected engin
 
 namespace Templix\Laravel;
 
-use Illuminate\View\Engines\EngineInterface;
+use Illuminate\Contracts\View\Engine as EngineInterface;
 use Templix\Engine as TemplixEngine;
 
 final class LaravelTemplixViewEngine implements EngineInterface
