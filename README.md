@@ -18,7 +18,10 @@ Current MVP:
 - escaped / raw output
 - `@if`, `@elseif`, `@else`, `@endif`
 - `@foreach`, `@endforeach`
+- `@for`, `@while`, `@forelse`, `@switch`
 - `@isset`, `@endisset`, `@empty`, `@endempty`
+- `@class`, `@style`, `@checked`, `@selected`, `@disabled`, `@readonly`, `@required`
+- `@php`, `@verbatim`, `@json`, Blade comments
 - native PHP blocks
 - Volt-style single-file component smoke coverage
 

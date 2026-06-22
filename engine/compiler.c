@@ -270,6 +270,127 @@ static void templix_append_php_block(smart_str *compiled, const char *start, siz
     smart_str_appendc(compiled, '\n');
 }
 
+static zend_bool templix_php_block_starts_with_newline(const char *start, size_t len)
+{
+    const char *cursor = start;
+    const char *end = start + len;
+
+    while (cursor < end && (*cursor == ' ' || *cursor == '\t')) {
+        cursor++;
+    }
+
+    return cursor < end && (*cursor == '\n' || *cursor == '\r');
+}
+
+static const char *templix_skip_one_line_ending(const char *cursor, const char *end)
+{
+    if (cursor < end && *cursor == '\r') {
+        cursor++;
+        if (cursor < end && *cursor == '\n') {
+            cursor++;
+        }
+        return cursor;
+    }
+
+    if (cursor < end && *cursor == '\n') {
+        return cursor + 1;
+    }
+
+    return cursor;
+}
+
+static zend_bool templix_is_whitespace_only(const char *start, size_t len)
+{
+    const char *cursor = start;
+    const char *end = start + len;
+
+    while (cursor < end) {
+        if (!isspace((unsigned char)*cursor)) {
+            return 0;
+        }
+        cursor++;
+    }
+
+    return 1;
+}
+
+static void templix_append_directive_inner(smart_str *compiled, const char *open, const char *line_end)
+{
+    const char *cursor = open;
+    const char *inner_end = line_end - 1;
+
+    while (cursor < line_end && isspace((unsigned char)*cursor)) {
+        cursor++;
+    }
+    if (cursor < line_end && *cursor == '(') {
+        cursor++;
+    }
+    while (inner_end > cursor && isspace((unsigned char)inner_end[-1])) {
+        inner_end--;
+    }
+
+    smart_str_appendl(compiled, cursor, inner_end - cursor);
+}
+
+static void templix_append_function_directive(
+    smart_str *compiled,
+    const char *function_name,
+    const char *open,
+    const char *line_end,
+    zend_bool *echo_open,
+    zend_bool *echo_has_arg
+) {
+    smart_str expr = {0};
+
+    smart_str_appends(&expr, function_name);
+    smart_str_appendc(&expr, '(');
+    templix_append_directive_inner(&expr, open, line_end);
+    smart_str_appendc(&expr, ')');
+    smart_str_0(&expr);
+
+    templix_append_raw_echo(compiled, expr.s, echo_open, echo_has_arg);
+    zend_string_release(expr.s);
+}
+
+static void templix_append_boolean_attribute_directive(
+    smart_str *compiled,
+    const char *attribute,
+    const char *open,
+    const char *line_end,
+    zend_bool *echo_open,
+    zend_bool *echo_has_arg
+) {
+    smart_str expr = {0};
+
+    smart_str_appends(&expr, "((");
+    templix_append_directive_inner(&expr, open, line_end);
+    smart_str_appends(&expr, ") ? '");
+    smart_str_appends(&expr, attribute);
+    smart_str_appends(&expr, "' : '')");
+    smart_str_0(&expr);
+
+    templix_append_raw_echo(compiled, expr.s, echo_open, echo_has_arg);
+    zend_string_release(expr.s);
+}
+
+static void templix_append_conditional_loop_control(
+    smart_str *compiled,
+    const char *statement,
+    const char *open,
+    const char *line_end
+) {
+    if (line_end) {
+        smart_str_appends(compiled, "if (");
+        templix_append_directive_inner(compiled, open, line_end);
+        smart_str_appends(compiled, "): ");
+        smart_str_appends(compiled, statement);
+        smart_str_appends(compiled, "; endif;\n");
+    } else {
+        smart_str_appends(compiled, statement);
+        smart_str_appends(compiled, ";\n");
+    }
+}
+
 zend_string *templix_compile_source(zend_string *source)
 {
     const char *cursor = ZSTR_VAL(source);
@@ -277,10 +398,16 @@ zend_string *templix_compile_source(zend_string *source)
     smart_str compiled = {0};
     zend_bool echo_open = 0;
     zend_bool echo_has_arg = 0;
+    char forelse_stack[64][32];
+    size_t forelse_depth = 0;
+    unsigned int forelse_counter = 0;
+    size_t switch_depth = 0;
+    zend_bool suppress_switch_whitespace = 0;
 
     smart_str_appends(&compiled, "<?php /* compiled by Templix */\n");
 
     while (cursor < end) {
+        const char *comment = php_memnstr(cursor, "{{--", 4, end);
         const char *escaped = php_memnstr(cursor, "{{", 2, end);
         const char *raw = php_memnstr(cursor, "{!!", 3, end);
         const char *directive = php_memnstr(cursor, "@", 1, end);
@@ -289,13 +416,17 @@ zend_string *templix_compile_source(zend_string *source)
         zend_bool is_raw = 0;
         zend_bool is_directive = 0;
         zend_bool is_php = 0;
+        zend_bool is_comment = 0;
 
-        if (!escaped && !raw && !directive && !php_tag) {
+        if (!comment && !escaped && !raw && !directive && !php_tag) {
             templix_append_literal_echo(&compiled, cursor, end - cursor, &echo_open, &echo_has_arg);
             break;
         }
 
-        if (php_tag && (!escaped || php_tag < escaped) && (!raw || php_tag < raw) && (!directive || php_tag < directive)) {
+        if (comment && (!escaped || comment <= escaped) && (!raw || comment < raw) && (!directive || comment < directive) && (!php_tag || comment < php_tag)) {
+            tag = comment;
+            is_comment = 1;
+        } else if (php_tag && (!escaped || php_tag < escaped) && (!raw || php_tag < raw) && (!directive || php_tag < directive)) {
             tag = php_tag;
             is_php = 1;
         } else if (directive && (!escaped || directive < escaped) && (!raw || directive < raw)) {
@@ -308,9 +439,25 @@ zend_string *templix_compile_source(zend_string *source)
             tag = escaped;
         }
 
-        templix_append_literal_echo(&compiled, cursor, tag - cursor, &echo_open, &echo_has_arg);
+        if (suppress_switch_whitespace &&
+            is_directive &&
+            templix_is_whitespace_only(cursor, tag - cursor)) {
+            /* PHP alternative switch syntax does not allow output before case/default labels. */
+        } else {
+            templix_append_literal_echo(&compiled, cursor, tag - cursor, &echo_open, &echo_has_arg);
+            if (tag > cursor) {
+                suppress_switch_whitespace = 0;
+            }
+        }
 
-        if (is_php) {
+        if (is_comment) {
+            const char *close = php_memnstr(tag + 4, "--}}", 4, end);
+            if (!close) {
+                templix_append_literal_echo(&compiled, tag, end - tag, &echo_open, &echo_has_arg);
+                break;
+            }
+            cursor = close + 4;
+        } else if (is_php) {
             const char *close = php_memnstr(tag + 5, "?>", 2, end);
 
             if (!close) {
@@ -322,7 +469,49 @@ zend_string *templix_compile_source(zend_string *source)
             templix_append_php_block(&compiled, tag + 5, close - (tag + 5));
             cursor = close + 2;
         } else if (is_directive) {
-            if ((size_t)(end - tag) >= sizeof("@if") - 1 && memcmp(tag, "@if", sizeof("@if") - 1) == 0) {
+            if ((size_t)(end - tag) >= sizeof("@php") - 1 && memcmp(tag, "@php", sizeof("@php") - 1) == 0) {
+                const char *close = php_memnstr(tag + sizeof("@php") - 1, "@endphp", sizeof("@endphp") - 1, end);
+                const char *block_start = tag + sizeof("@php") - 1;
+                size_t block_len;
+                if (!close) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                block_len = close - block_start;
+                templix_close_echo(&compiled, &echo_open);
+                templix_append_php_block(&compiled, block_start, block_len);
+                cursor = close + sizeof("@endphp") - 1;
+                if (templix_php_block_starts_with_newline(block_start, block_len)) {
+                    cursor = templix_skip_one_line_ending(cursor, end);
+                }
+            } else if ((size_t)(end - tag) >= sizeof("@verbatim") - 1 && memcmp(tag, "@verbatim", sizeof("@verbatim") - 1) == 0) {
+                const char *close = php_memnstr(tag + sizeof("@verbatim") - 1, "@endverbatim", sizeof("@endverbatim") - 1, end);
+                if (!close) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_append_literal_echo(&compiled, tag + sizeof("@verbatim") - 1, close - (tag + sizeof("@verbatim") - 1), &echo_open, &echo_has_arg);
+                cursor = close + sizeof("@endverbatim") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@unless") - 1 && memcmp(tag, "@unless", sizeof("@unless") - 1) == 0) {
+                const char *open = tag + sizeof("@unless") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "if (!");
+                smart_str_appendl(&compiled, open, line_end - open);
+                smart_str_appends(&compiled, "):\n");
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@endunless") - 1 && memcmp(tag, "@endunless", sizeof("@endunless") - 1) == 0) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "endif;\n");
+                cursor = tag + sizeof("@endunless") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@if") - 1 && memcmp(tag, "@if", sizeof("@if") - 1) == 0) {
                 const char *open = tag + sizeof("@if") - 1;
                 const char *line_end = templix_find_directive_close(open, end);
                 if (!line_end) {
@@ -365,6 +554,15 @@ zend_string *templix_compile_source(zend_string *source)
                 templix_close_echo(&compiled, &echo_open);
                 smart_str_appends(&compiled, "endif;\n");
                 cursor = tag + sizeof("@endisset") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@empty") - 1 &&
+                       memcmp(tag, "@empty", sizeof("@empty") - 1) == 0 &&
+                       forelse_depth > 0 &&
+                       !templix_find_directive_close(tag + sizeof("@empty") - 1, end)) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "endforeach; if (");
+                smart_str_appends(&compiled, forelse_stack[forelse_depth - 1]);
+                smart_str_appends(&compiled, "):\n");
+                cursor = tag + sizeof("@empty") - 1;
             } else if ((size_t)(end - tag) >= sizeof("@empty") - 1 && memcmp(tag, "@empty", sizeof("@empty") - 1) == 0) {
                 const char *open = tag + sizeof("@empty") - 1;
                 const char *line_end = templix_find_directive_close(open, end);
@@ -382,6 +580,31 @@ zend_string *templix_compile_source(zend_string *source)
                 templix_close_echo(&compiled, &echo_open);
                 smart_str_appends(&compiled, "endif;\n");
                 cursor = tag + sizeof("@endempty") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@forelse") - 1 && memcmp(tag, "@forelse", sizeof("@forelse") - 1) == 0) {
+                const char *open = tag + sizeof("@forelse") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end || forelse_depth >= 64) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                snprintf(forelse_stack[forelse_depth], sizeof(forelse_stack[forelse_depth]), "$__templix_empty_%u", ++forelse_counter);
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, forelse_stack[forelse_depth]);
+                smart_str_appends(&compiled, " = true;\nforeach ");
+                smart_str_appendl(&compiled, open, line_end - open);
+                smart_str_appends(&compiled, ":\n");
+                smart_str_appends(&compiled, forelse_stack[forelse_depth]);
+                smart_str_appends(&compiled, " = false;\n");
+                forelse_depth++;
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@endforelse") - 1 && memcmp(tag, "@endforelse", sizeof("@endforelse") - 1) == 0) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "endif;\n");
+                if (forelse_depth > 0) {
+                    forelse_depth--;
+                }
+                cursor = tag + sizeof("@endforelse") - 1;
             } else if ((size_t)(end - tag) >= sizeof("@else") - 1 && memcmp(tag, "@else", sizeof("@else") - 1) == 0) {
                 templix_close_echo(&compiled, &echo_open);
                 smart_str_appends(&compiled, "else:\n");
@@ -407,6 +630,161 @@ zend_string *templix_compile_source(zend_string *source)
                 templix_close_echo(&compiled, &echo_open);
                 smart_str_appends(&compiled, "endforeach;\n");
                 cursor = tag + sizeof("@endforeach") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@for") - 1 && memcmp(tag, "@for", sizeof("@for") - 1) == 0) {
+                const char *open = tag + sizeof("@for") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "for ");
+                smart_str_appendl(&compiled, open, line_end - open);
+                smart_str_appends(&compiled, ":\n");
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@endfor") - 1 && memcmp(tag, "@endfor", sizeof("@endfor") - 1) == 0) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "endfor;\n");
+                cursor = tag + sizeof("@endfor") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@while") - 1 && memcmp(tag, "@while", sizeof("@while") - 1) == 0) {
+                const char *open = tag + sizeof("@while") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "while ");
+                smart_str_appendl(&compiled, open, line_end - open);
+                smart_str_appends(&compiled, ":\n");
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@endwhile") - 1 && memcmp(tag, "@endwhile", sizeof("@endwhile") - 1) == 0) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "endwhile;\n");
+                cursor = tag + sizeof("@endwhile") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@switch") - 1 && memcmp(tag, "@switch", sizeof("@switch") - 1) == 0) {
+                const char *open = tag + sizeof("@switch") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "switch ");
+                smart_str_appendl(&compiled, open, line_end - open);
+                smart_str_appends(&compiled, ":\n");
+                switch_depth++;
+                suppress_switch_whitespace = 1;
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@case") - 1 && memcmp(tag, "@case", sizeof("@case") - 1) == 0) {
+                const char *open = tag + sizeof("@case") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "case ");
+                templix_append_directive_inner(&compiled, open, line_end);
+                smart_str_appends(&compiled, ":\n");
+                suppress_switch_whitespace = 0;
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@default") - 1 && memcmp(tag, "@default", sizeof("@default") - 1) == 0) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "default:\n");
+                suppress_switch_whitespace = 0;
+                cursor = tag + sizeof("@default") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@endswitch") - 1 && memcmp(tag, "@endswitch", sizeof("@endswitch") - 1) == 0) {
+                templix_close_echo(&compiled, &echo_open);
+                smart_str_appends(&compiled, "endswitch;\n");
+                if (switch_depth > 0) {
+                    switch_depth--;
+                }
+                suppress_switch_whitespace = 0;
+                cursor = tag + sizeof("@endswitch") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@break") - 1 && memcmp(tag, "@break", sizeof("@break") - 1) == 0) {
+                const char *open = tag + sizeof("@break") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                templix_close_echo(&compiled, &echo_open);
+                templix_append_conditional_loop_control(&compiled, "break", open, line_end);
+                suppress_switch_whitespace = switch_depth > 0;
+                cursor = line_end ? line_end : tag + sizeof("@break") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@continue") - 1 && memcmp(tag, "@continue", sizeof("@continue") - 1) == 0) {
+                const char *open = tag + sizeof("@continue") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                templix_close_echo(&compiled, &echo_open);
+                templix_append_conditional_loop_control(&compiled, "continue", open, line_end);
+                cursor = line_end ? line_end : tag + sizeof("@continue") - 1;
+            } else if ((size_t)(end - tag) >= sizeof("@class") - 1 && memcmp(tag, "@class", sizeof("@class") - 1) == 0) {
+                const char *open = tag + sizeof("@class") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_append_function_directive(&compiled, "\\Templix\\class_attr", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@style") - 1 && memcmp(tag, "@style", sizeof("@style") - 1) == 0) {
+                const char *open = tag + sizeof("@style") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                templix_append_function_directive(&compiled, "\\Templix\\style_attr", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@checked") - 1 && memcmp(tag, "@checked", sizeof("@checked") - 1) == 0) {
+                const char *open = tag + sizeof("@checked") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) { templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg); cursor = tag + 1; continue; }
+                templix_append_boolean_attribute_directive(&compiled, "checked", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@selected") - 1 && memcmp(tag, "@selected", sizeof("@selected") - 1) == 0) {
+                const char *open = tag + sizeof("@selected") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) { templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg); cursor = tag + 1; continue; }
+                templix_append_boolean_attribute_directive(&compiled, "selected", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@disabled") - 1 && memcmp(tag, "@disabled", sizeof("@disabled") - 1) == 0) {
+                const char *open = tag + sizeof("@disabled") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) { templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg); cursor = tag + 1; continue; }
+                templix_append_boolean_attribute_directive(&compiled, "disabled", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@readonly") - 1 && memcmp(tag, "@readonly", sizeof("@readonly") - 1) == 0) {
+                const char *open = tag + sizeof("@readonly") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) { templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg); cursor = tag + 1; continue; }
+                templix_append_boolean_attribute_directive(&compiled, "readonly", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@required") - 1 && memcmp(tag, "@required", sizeof("@required") - 1) == 0) {
+                const char *open = tag + sizeof("@required") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                if (!line_end) { templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg); cursor = tag + 1; continue; }
+                templix_append_boolean_attribute_directive(&compiled, "required", open, line_end, &echo_open, &echo_has_arg);
+                cursor = line_end;
+            } else if ((size_t)(end - tag) >= sizeof("@json") - 1 && memcmp(tag, "@json", sizeof("@json") - 1) == 0) {
+                const char *open = tag + sizeof("@json") - 1;
+                const char *line_end = templix_find_directive_close(open, end);
+                smart_str expr = {0};
+                if (!line_end) {
+                    templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
+                    cursor = tag + 1;
+                    continue;
+                }
+                smart_str_appends(&expr, "json_encode(");
+                templix_append_directive_inner(&expr, open, line_end);
+                smart_str_appends(&expr, ", JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)");
+                smart_str_0(&expr);
+                templix_append_raw_echo(&compiled, expr.s, &echo_open, &echo_has_arg);
+                zend_string_release(expr.s);
+                cursor = line_end;
             } else {
                 templix_append_literal_echo(&compiled, tag, 1, &echo_open, &echo_has_arg);
                 cursor = tag + 1;

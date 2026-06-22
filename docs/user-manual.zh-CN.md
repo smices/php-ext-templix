@@ -127,6 +127,14 @@ echo $engine->render('quotes/ticker', [
 @endforeach
 ```
 
+属性与辅助指令：
+
+```blade
+<tr @class(['up' => $change >= 0, 'down' => $change < 0])>
+<input @checked($active) @disabled($locked)>
+<script>const payload = @json($payload);</script>
+```
+
 原生 PHP block：
 
 ```blade
@@ -275,4 +283,3 @@ mkdir -p storage/framework/views/templix
 ```text
 prod 模式优先使用缓存。清理 Templix 缓存或重新预热模板。
 ```
-

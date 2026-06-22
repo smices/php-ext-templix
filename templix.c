@@ -110,6 +110,91 @@ PHP_FUNCTION(templix_escape)
     RETURN_STR(output.s);
 }
 
+static void templix_append_attribute_part(smart_str *output, zend_string *part, const char *separator)
+{
+    if (ZSTR_LEN(part) == 0) {
+        return;
+    }
+    if (output->s && ZSTR_LEN(output->s) > 0) {
+        smart_str_appends(output, separator);
+    }
+    smart_str_append(output, part);
+}
+
+static zend_string *templix_build_attribute_list(zval *value, const char *separator)
+{
+    smart_str output = {0};
+    zval *entry;
+    zend_string *key;
+
+    ZVAL_DEREF(value);
+
+    if (Z_TYPE_P(value) == IS_ARRAY) {
+        ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(value), key, entry) {
+            ZVAL_DEREF(entry);
+            if (key) {
+                if (zend_is_true(entry)) {
+                    templix_append_attribute_part(&output, key, separator);
+                }
+            } else if (Z_TYPE_P(entry) != IS_FALSE && Z_TYPE_P(entry) != IS_NULL) {
+                zend_string *part = zval_get_string(entry);
+                templix_append_attribute_part(&output, part, separator);
+                zend_string_release(part);
+            }
+        } ZEND_HASH_FOREACH_END();
+    } else if (Z_TYPE_P(value) != IS_FALSE && Z_TYPE_P(value) != IS_NULL) {
+        zend_string *part = zval_get_string(value);
+        templix_append_attribute_part(&output, part, separator);
+        zend_string_release(part);
+    }
+
+    smart_str_0(&output);
+    return output.s ? output.s : ZSTR_EMPTY_ALLOC();
+}
+
+PHP_FUNCTION(templix_class_attr)
+{
+    zval *value;
+    zend_string *classes;
+    smart_str output = {0};
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_ZVAL(value)
+    ZEND_PARSE_PARAMETERS_END();
+
+    classes = templix_build_attribute_list(value, " ");
+    smart_str_appends(&output, "class=\"");
+    smart_str_append(&output, classes);
+    smart_str_appendc(&output, '"');
+    smart_str_0(&output);
+    zend_string_release(classes);
+
+    RETURN_STR(output.s);
+}
+
+PHP_FUNCTION(templix_style_attr)
+{
+    zval *value;
+    zend_string *styles;
+    smart_str output = {0};
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_ZVAL(value)
+    ZEND_PARSE_PARAMETERS_END();
+
+    styles = templix_build_attribute_list(value, "; ");
+    smart_str_appends(&output, "style=\"");
+    smart_str_append(&output, styles);
+    if (ZSTR_LEN(styles) > 0 && ZSTR_VAL(styles)[ZSTR_LEN(styles) - 1] != ';') {
+        smart_str_appendc(&output, ';');
+    }
+    smart_str_appendc(&output, '"');
+    smart_str_0(&output);
+    zend_string_release(styles);
+
+    RETURN_STR(output.s);
+}
+
 static inline templix_engine_object *templix_engine_from_obj(zend_object *obj)
 {
     return (templix_engine_object *)((char *)(obj) - XtOffsetOf(templix_engine_object, std));
@@ -420,6 +505,10 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_templix_escape, 0, 1, IS_STRING,
     ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_templix_attribute_attr, 0, 1, IS_STRING, 0)
+    ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry templix_engine_methods[] = {
     PHP_ME(Templix_Engine, __construct, arginfo_templix_engine_construct, ZEND_ACC_PUBLIC)
     PHP_ME(Templix_Engine, render, arginfo_templix_engine_render, ZEND_ACC_PUBLIC)
@@ -428,6 +517,8 @@ static const zend_function_entry templix_engine_methods[] = {
 
 static const zend_function_entry templix_functions[] = {
     ZEND_NS_FENTRY("Templix", escape, PHP_FN(templix_escape), arginfo_templix_escape, 0)
+    ZEND_NS_FENTRY("Templix", class_attr, PHP_FN(templix_class_attr), arginfo_templix_attribute_attr, 0)
+    ZEND_NS_FENTRY("Templix", style_attr, PHP_FN(templix_style_attr), arginfo_templix_attribute_attr, 0)
     PHP_FE_END
 };
 
